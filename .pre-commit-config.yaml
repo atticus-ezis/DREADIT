@@ -1,0 +1,59 @@
+default_stages: [pre-commit]
+
+exclude: |
+  (?x)^(
+    migrations/|
+    node_modules/|
+    static/|
+    dist/|
+    build/|
+    __pycache__/|
+    .mypy_cache/|
+    .pytest_cache/|
+    .ruff_cache/|
+    .tox/|
+    .venv/|
+    venv/
+  )
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: "\\.(md|MD)$"
+      - id: end-of-file-fixer
+      - id: check-yaml
+
+  # 1) Remove unused code first
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args: ["--in-place", "--remove-all-unused-imports", "--remove-unused-variables"]
+
+  # 2) Then sort imports
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  # 3) Then format code
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        # language_version: python3.11  # optionally pin
+
+  # 4) Finally, lint
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-isort]
+
+ci:
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
