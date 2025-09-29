@@ -8,4 +8,26 @@ dependencies = [
     "dj-database-url>=3.0.1",
     "django>=5.2.6",
     "django-environ>=0.11.2",
+    "django-health-check>=3.20.0",
+    "psycopg2-binary>=2.9.9",
+    "gunicorn>=21.2.0",
 ]
+
+# Dev-only tools (not installed in runtime images)
+[dependency-groups]
+dev = [
+    "pre-commit",
+]
+
+# Tool configurations (picked up by hooks and local runs)
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203","W503"]
+exclude = [".venv","venv","build","dist","node_modules","migrations","__pycache__"]

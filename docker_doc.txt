@@ -1,0 +1,27 @@
+DEVELOPMENT CONTAINER
+# 1
+create Dockerfile
+    select image type
+    install system deps
+    create working directory
+    install and sync uv
+    copy project
+
+# 2
+add docker-compose.yml
+    create web container
+    build app
+    run server
+    create volumes to store data *override .env with .env.dev content
+
+# 3
+Build image, -> Run container
+    docker-compose build
+    docer-compose up -d
+    docker-compose logs -f
+    docker-compose up -d
+
+NOTES:
+    In Dockerfile
+        Activate uv and dependencies in working dir and copy project contents
+    In Compose.yaml

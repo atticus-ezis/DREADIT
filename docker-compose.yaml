@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    volumes:
+      - .:/app # copy current project files
+      - /app/.venv # create seperated virtual environment
+      - ./.env.dev:/app/.env # move .env.dev to .env
+    working_dir: /app
+    command: uv run python manage.py runserver 0.0.0.0:8000
+
+    ports:
+      - 8000:8000
