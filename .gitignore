@@ -1,2 +1,11 @@
+# Environment variables
 *.env
 documentation.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS
+.DS_Store

@@ -8,16 +8,25 @@ services:
       - ./.env.prod
     volumes:
       - static_volume:/app/staticfiles
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
     image: nginx:alpine
     ports:
-      - 80:80 # maybe change
-      - 443:443 # and SSL
+      - 80:80 # local computer http
+      - 443:443 # for SSL https
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - static_volume:/app/staticfiles
     depends_on:
-      - web
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   static_volume:
