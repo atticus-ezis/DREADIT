@@ -17,7 +17,8 @@ Including another URLconf
 
 from django.contrib import admin
 from django.http import HttpResponse
-from django.urls import path
+from django.urls import include, path
+from oauth2_provider.urls import path as oauth2_urls
 
 
 def health(request):
@@ -27,5 +28,18 @@ def health(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health),
-    # path('health/', include('health_check.urls')),
+    # auth
+    path("accounts/", include("allauth.urls")),
+    path("api/v1/oauth2/", include(oauth2_urls, namespace="oauth2_provider")),
+    # rest urls
+    path(
+        "api/v1/",
+        include(
+            (
+                [
+                    path("auth/", include("dj_rest_auth.urls")),
+                ]
+            )
+        ),
+    ),
 ]

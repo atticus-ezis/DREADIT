@@ -20,6 +20,7 @@ Build image, -> Run container
     docer-compose up -d
     docker-compose logs -f
     docker-compose up -d
+    docker-compose down --remove-orphans
 
 NOTES:
     In Dockerfile

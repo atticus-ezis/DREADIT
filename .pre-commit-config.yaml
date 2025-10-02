@@ -2,7 +2,7 @@ default_stages: [pre-commit]
 
 exclude: |
   (?x)^(
-    migrations/|
+    .*/migrations/.*|
     node_modules/|
     static/|
     dist/|
