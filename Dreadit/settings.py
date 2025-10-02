@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -59,29 +60,41 @@ ALLOWED_HOSTS = env.list(
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-yxvekamb37n9eb&iih2z24$b4s6r)iu0*k@ljqj5soiko8qkw7"
+SECRET_KEY = env.str("SECRET_KEY")
 
 # Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
+    "django.contrib.messages",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
-    "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
 
 THIRD_PARTY_APPS = [
-    "health_check",
-    "health_check.db",
-    "health_check.cache",
-    "health_check.storage",
+    # rest framework
+    "rest_framework",
+    "rest_framework.authtoken",
+    "dj_rest_auth",
+    # allauth
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "oauth2_provider",
+    # social providers
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.facebook",
+    "allauth.socialaccount.providers.twitter_oauth2",
 ]
 
-LOCAL_APPS = []
+LOCAL_APPS = [
+    "users",
+]
 
 INSTALLED_APPS += THIRD_PARTY_APPS + LOCAL_APPS
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -91,7 +104,34 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # allauth account middleware:
+    "allauth.account.middleware.AccountMiddleware",
 ]
+
+# Provider specific settings
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": env.str("GOOGLE_CLIENT_ID"),
+            "secret": env.str("GOOGLE_CLIENT_SECRET"),
+            "key": "",
+        }
+    },
+    "facebook": {
+        "APP": {
+            "client_id": env.str("FACEBOOK_CLIENT_ID"),
+            "secret": env.str("FACEBOOK_CLIENT_SECRET"),
+            "key": "",
+        }
+    },
+    "twitter_oauth2": {
+        "SCOPE": ["users.read", "tweet.read", "offline.access"],
+        "APP": {
+            "client_id": env.str("TWITTER_CLIENT_ID"),
+            "secret": env.str("TWITTER_CLIENT_SECRET"),
+        },
+    },
+}
 
 ROOT_URLCONF = "dreadit.urls"
 
@@ -103,6 +143,7 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.debug",
+                # add for allauth
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
@@ -111,7 +152,57 @@ TEMPLATES = [
     },
 ]
 
+# Add for allauth
+AUTHENTICATION_BACKENDS = [
+    # Needed to login by username in Django admin, regardless of `allauth`
+    "django.contrib.auth.backends.ModelBackend",
+    # `allauth` specific authentication methods, such as login by email
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
 WSGI_APPLICATION = "dreadit.wsgi.application"
+
+# Authentication
+
+AUTH_USER_MODEL = "users.User"
+
+SITE_ID = 1
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "apikey": env.str("API_RATE_LIMIT", "100/minute"),
+    },
+}
+
+# Allauth
+
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+
+# JWT
+
+REST_USE_JWT = True
+JWT_AUTH_COOKIE = "jwt-auth"
+JWT_AUTH_REFRESH_COOKIE = "jwt-refresh-token"
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+
+# Email
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env.str("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", False)
+EMAIL_PORT = int(env.str("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", None)
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", None)
 
 
 # Database
