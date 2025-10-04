@@ -15,10 +15,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
-from oauth2_provider.urls import path as oauth2_urls
+from django.views.generic import TemplateView
+
+from users.api.v1.views import (
+    CustomVerifyEmailView,
+    FacebookLogin,
+    GoogleLogin,
+    TwitterLogin,
+)
 
 
 def health(request):
@@ -30,7 +39,12 @@ urlpatterns = [
     path("health/", health),
     # auth
     path("accounts/", include("allauth.urls")),
-    path("api/v1/oauth2/", include(oauth2_urls, namespace="oauth2_provider")),
+    # TODO create template
+    path(
+        "accounts/confirm-email/<str:key>/",
+        TemplateView.as_view(template_name="account/email_confirm.html"),
+        name="account_confirm_email",
+    ),
     # rest urls
     path(
         "api/v1/",
@@ -38,8 +52,37 @@ urlpatterns = [
             (
                 [
                     path("auth/", include("dj_rest_auth.urls")),
+                    path(
+                        "auth/registration/", include("dj_rest_auth.registration.urls")
+                    ),
+                    path(
+                        "auth/registration/verify-email/",
+                        CustomVerifyEmailView.as_view(),
+                        name="rest_verify_email",
+                    ),
+                    # social logins
+                    path(
+                        "auth/social/google/",
+                        GoogleLogin.as_view(),
+                        name="google_login",
+                    ),
+                    path(
+                        "auth/social/facebook/",
+                        FacebookLogin.as_view(),
+                        name="facebook_login",
+                    ),
+                    path(
+                        "auth/social/twitter/",
+                        TwitterLogin.as_view(),
+                        name="twitter_login",
+                    ),
                 ]
             )
         ),
     ),
 ]
+
+# Serve static files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

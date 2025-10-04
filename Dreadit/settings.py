@@ -21,46 +21,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
 
-# Production vs Dev
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env.str("SECRET_KEY")
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env.bool("DEBUG", default=True)
+
+# Production vs Dev
 PRODUCTION = env.bool("PRODUCTION", False)
 USE_POSTGRES = env.bool("USE_POSTGRES", False)
 
-if USE_POSTGRES:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=env.str("DATABASE_URL"),
-            conn_max_age=600,
-            ssl_require=True,
-        ),
-        "OPTIONS": {
-            "connect_timeout": 30,
-        },
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
 
 # if PRODUCTION:
 #     SECURE_SSL_REDIRECT = True
 #     SESSION_COOKIE_SECURE = True
 #     CSRF_COOKIE_SECURE = True
 
-DEBUG = False if PRODUCTION else True
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "[::1]"]
-)  # Add domain in .env.prod
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+if DEBUG:
+    ALLOWED_HOSTS.append("*")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env.str("SECRET_KEY")
+SITE_ID = 1
+
+FRONTEND_URL = env.str("FRONTEND_URL", "http://localhost:3000")
 
 # Application definition
 
@@ -71,19 +57,27 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
 ]
 
 THIRD_PARTY_APPS = [
+    "django_extensions",
     # rest framework
     "rest_framework",
     "rest_framework.authtoken",
     "dj_rest_auth",
+    "dj_rest_auth.registration",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    # cors
+    "corsheaders",
     # allauth
     "allauth",
     "allauth.account",
-    "allauth.socialaccount",
+    # oauth2
     "oauth2_provider",
     # social providers
+    "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.facebook",
     "allauth.socialaccount.providers.twitter_oauth2",
@@ -97,6 +91,9 @@ INSTALLED_APPS += THIRD_PARTY_APPS + LOCAL_APPS
 
 
 MIDDLEWARE = [
+    # cors
+    "corsheaders.middleware.CorsMiddleware",
+    # default
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -107,6 +104,8 @@ MIDDLEWARE = [
     # allauth account middleware:
     "allauth.account.middleware.AccountMiddleware",
 ]
+
+ROOT_URLCONF = "dreadit.urls"
 
 # Provider specific settings
 SOCIALACCOUNT_PROVIDERS = {
@@ -133,12 +132,10 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-ROOT_URLCONF = "dreadit.urls"
-
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -152,62 +149,28 @@ TEMPLATES = [
     },
 ]
 
-# Add for allauth
-AUTHENTICATION_BACKENDS = [
-    # Needed to login by username in Django admin, regardless of `allauth`
-    "django.contrib.auth.backends.ModelBackend",
-    # `allauth` specific authentication methods, such as login by email
-    "allauth.account.auth_backends.AuthenticationBackend",
-]
-
 WSGI_APPLICATION = "dreadit.wsgi.application"
-
-# Authentication
-
-AUTH_USER_MODEL = "users.User"
-
-SITE_ID = 1
-
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "apikey": env.str("API_RATE_LIMIT", "100/minute"),
-    },
-}
-
-# Allauth
-
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-
-# JWT
-
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = "jwt-auth"
-JWT_AUTH_REFRESH_COOKIE = "jwt-refresh-token"
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-}
-
-# Email
-
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = env.str("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", False)
-EMAIL_PORT = int(env.str("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", None)
-EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", None)
-
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
+if USE_POSTGRES:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=env.str("DATABASE_URL"),
+            conn_max_age=600,
+            ssl_require=True,
+        ),
+        "OPTIONS": {
+            "connect_timeout": 30,
+        },
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -227,7 +190,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
@@ -239,18 +201,113 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Media files
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "users.User"
+
+AUTHENTICATION_BACKENDS = [
+    # Needed to login by username in Django admin, regardless of `allauth`
+    "django.contrib.auth.backends.ModelBackend",
+    # `allauth` specific authentication methods, such as login by email
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# Email
+if PRODUCTION:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = env.str("EMAIL_HOST", "localhost")
+    EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", False)
+    EMAIL_PORT = int(env.str("EMAIL_PORT", "1025"))
+    EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", "")
+
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = "localhost"
+    EMAIL_PORT = 1025
+    EMAIL_USE_TLS = False
+    EMAIL_USE_SSL = False
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+    DEFAULT_FROM_EMAIL = "noreply@localhost"
+
+# Allauth
+ACCOUNT_SIGNUP_FIELDS = ["username", "password1*", "password2*"]
+ACCOUNT_EMAIL_TEMPLATE_EXTENSION = "html"
+ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_UNIQUE_EMAIL = True
+# LOGIN_URL =
+LOGIN_REDIRECT_URL = "/"
+OLD_PASSWORD_FIELD_ENABLED = True
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+
+# Modern allauth configuration - using dictionary format as suggested by warnings
+# ACCOUNT_SIGNUP_FIELDS = {
+#     'username': {'required': True},
+#     'email': {'required': True},
+#     'password1': {'required': True},
+#     'password2': {'required': True},
+# }
+
+# Explicitly set login methods to match signup fields
+ACCOUNT_LOGIN_METHODS = ["username", "email"]
+
+# Suppress the known conflict warning - this is a known issue with django-allauth
+SILENCED_SYSTEM_CHECKS = ["account.W001"]
+
+# REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
+        "dj_rest_auth.jwt_auth.JWTCookieAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "apikey": env.str("API_RATE_LIMIT", "100/minute"),
+    },
+}
+
+# JWT
+REST_USE_JWT = True
+JWT_AUTH_COOKIE = "jwt-auth"
+JWT_AUTH_REFRESH_COOKIE = "jwt-refresh-token"
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
+
+REST_AUTH = {
+    "USE_JWT": True,
+    "JWT_AUTH_COOKIE": "jwt-auth",
+    "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
+    "JWT_AUTH_HTTPONLY": True,
+    # add serializers
+}
+
+CORS_ALLOWED_ORIGINS = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://127.0.0.1:3000", "http://localhost:3000"],
+)
+
+CORS_ALLOW_CREDENTIALS = True
+
+# Configure AWS s3 media seperatley
+
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"

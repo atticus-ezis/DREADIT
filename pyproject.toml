@@ -13,8 +13,10 @@ dependencies = [
     "django-rest>=0.8.7",
     "django-allauth[socialaccount]>=65.11.2",
     "djangorestframework-simplejwt>=5.5.1",
-    "dj-rest-auth>=7.0.1",
+    "dj-rest-auth[with-social]>=7.0.1",
     "django-oauth-toolkit>=3.0.1",
+    "django-cors-headers>=4.9.0",
+    "django-extensions>=4.1",
 ]
 
 # Dev-only tools (not installed in runtime images)
