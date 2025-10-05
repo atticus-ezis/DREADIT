@@ -34,9 +34,14 @@ def health(request):
     return HttpResponse("Health check: OK")
 
 
+def home(request):
+    return HttpResponse("home page")
+
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health),
+    path("home/", home, name="home"),
     # auth
     path("accounts/", include("allauth.urls")),
     # TODO create template
@@ -56,10 +61,15 @@ urlpatterns = [
                         "auth/registration/", include("dj_rest_auth.registration.urls")
                     ),
                     path(
-                        "auth/registration/verify-email/",
+                        "auth/account-confirm-email/<str:key>",
                         CustomVerifyEmailView.as_view(),
-                        name="rest_verify_email",
+                        name="account_confirm_email",
                     ),
+                    # path(
+                    #     "auth/registration/verify-email/",
+                    #     VerifyEmailView.as_view(),
+                    #     name="rest_verify_email",
+                    # ),
                     # social logins
                     path(
                         "auth/social/google/",

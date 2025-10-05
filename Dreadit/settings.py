@@ -241,14 +241,14 @@ else:
     DEFAULT_FROM_EMAIL = "noreply@localhost"
 
 # Allauth
-ACCOUNT_SIGNUP_FIELDS = ["username", "password1*", "password2*"]
+ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
 ACCOUNT_EMAIL_TEMPLATE_EXTENSION = "html"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_UNIQUE_EMAIL = True
-# LOGIN_URL =
+# LOGIN_URL
 LOGIN_REDIRECT_URL = "/"
 OLD_PASSWORD_FIELD_ENABLED = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
@@ -256,7 +256,6 @@ ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 # Modern allauth configuration - using dictionary format as suggested by warnings
 # ACCOUNT_SIGNUP_FIELDS = {
 #     'username': {'required': True},
-#     'email': {'required': True},
 #     'password1': {'required': True},
 #     'password2': {'required': True},
 # }
@@ -295,7 +294,7 @@ REST_AUTH = {
     "USE_JWT": True,
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
-    "JWT_AUTH_HTTPONLY": True,
+    "JWT_AUTH_HTTPONLY": False,
     # add serializers
 }
 
