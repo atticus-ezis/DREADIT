@@ -20,14 +20,20 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path
-from django.views.generic import TemplateView
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
+from rest_framework import permissions
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from users.api.v1.views import (
+    CustomPasswordResetView,
     CustomVerifyEmailView,
     FacebookLogin,
     GoogleLogin,
     TwitterLogin,
 )
+
+# password reset
 
 
 def health(request):
@@ -42,28 +48,29 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health),
     path("home/", home, name="home"),
-    # auth
-    path("accounts/", include("allauth.urls")),
-    # TODO create template
-    path(
-        "accounts/confirm-email/<str:key>/",
-        TemplateView.as_view(template_name="account/email_confirm.html"),
-        name="account_confirm_email",
-    ),
     # rest urls
     path(
         "api/v1/",
         include(
             (
                 [
-                    path("auth/", include("dj_rest_auth.urls")),
+                    # Custom auth views - must come BEFORE dj_rest_auth.urls to override
                     path(
-                        "auth/registration/", include("dj_rest_auth.registration.urls")
+                        "auth/password/reset/",
+                        CustomPasswordResetView.as_view(),
+                        name="rest_password_reset",
                     ),
+                    # path("auth/password/reset/confirm/<uidb64>/<token>/",
+                    # PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
                     path(
                         "auth/account-confirm-email/<str:key>",
                         CustomVerifyEmailView.as_view(),
                         name="account_confirm_email",
+                    ),
+                    # Default dj_rest_auth URLs (these come after custom views)
+                    path("auth/", include("dj_rest_auth.urls")),
+                    path(
+                        "auth/registration/", include("dj_rest_auth.registration.urls")
                     ),
                     # path(
                     #     "auth/registration/verify-email/",
@@ -72,17 +79,17 @@ urlpatterns = [
                     # ),
                     # social logins
                     path(
-                        "auth/social/google/",
+                        "auth/google/",
                         GoogleLogin.as_view(),
                         name="google_login",
                     ),
                     path(
-                        "auth/social/facebook/",
+                        "auth/facebook/",
                         FacebookLogin.as_view(),
-                        name="facebook_login",
+                        name="fb_login",
                     ),
                     path(
-                        "auth/social/twitter/",
+                        "auth/twitter/",
                         TwitterLogin.as_view(),
                         name="twitter_login",
                     ),
@@ -96,3 +103,23 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# swagger
+api_info = openapi.Info(
+    title="DREADIT API",
+    default_version="v1",
+    description="API documentation for DREADIT",
+)
+schema_view = get_schema_view(
+    api_info,
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+    authentication_classes=(JWTAuthentication,),
+)
+urlpatterns += [
+    path("api/docs/", schema_view.with_ui("swagger", cache_timeout=0), name="api_docs"),
+]
+
+admin.site.site_header = "DREADIT"
+admin.site.site_title = "DREADIT Admin Portal"
+admin.site.index_title = "DREADIT Admin"

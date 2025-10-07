@@ -17,6 +17,7 @@ dependencies = [
     "django-oauth-toolkit>=3.0.1",
     "django-cors-headers>=4.9.0",
     "django-extensions>=4.1",
+    "drf-yasg>=1.21.11",
 ]
 
 # Dev-only tools (not installed in runtime images)

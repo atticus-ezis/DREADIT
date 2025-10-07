@@ -62,6 +62,10 @@ INSTALLED_APPS = [
 
 THIRD_PARTY_APPS = [
     "django_extensions",
+    # swagger
+    "drf_yasg",
+    # cors
+    "corsheaders",
     # rest framework
     "rest_framework",
     "rest_framework.authtoken",
@@ -69,8 +73,6 @@ THIRD_PARTY_APPS = [
     "dj_rest_auth.registration",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-    # cors
-    "corsheaders",
     # allauth
     "allauth",
     "allauth.account",
@@ -253,6 +255,14 @@ LOGIN_REDIRECT_URL = "/"
 OLD_PASSWORD_FIELD_ENABLED = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 
+# Password reset configuration
+ACCOUNT_PASSWORD_RESET_EXPIRE_DAYS = 1  # Password reset link expires in 1 day
+ACCOUNT_USERNAME_MIN_LENGTH = 3
+ACCOUNT_PASSWORD_MIN_LENGTH = 8
+
+
+# Password reset URLs are handled by custom views in urls.py
+
 # Modern allauth configuration - using dictionary format as suggested by warnings
 # ACCOUNT_SIGNUP_FIELDS = {
 #     'username': {'required': True},
@@ -295,7 +305,8 @@ REST_AUTH = {
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
     "JWT_AUTH_HTTPONLY": False,
-    # add serializers
+    # Custom serializers ...
+    "PASSWORD_RESET_CONFIRM_SERIALIZER": "dj_rest_auth.serializers.PasswordResetConfirmSerializer",
 }
 
 CORS_ALLOWED_ORIGINS = env.list(
@@ -310,3 +321,15 @@ CORS_ALLOW_CREDENTIALS = True
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# swagger settings
+SWAGGER_SETTINGS = {
+    "DEFAULT_INFO": f"{ROOT_URLCONF}.api_info",
+    "SECURITY_DEFINITIONS": {
+        "ApiKey": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+        },
+    },
+}
