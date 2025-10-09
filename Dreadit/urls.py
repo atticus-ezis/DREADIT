@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from dj_rest_auth.views import PasswordResetConfirmView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -54,29 +55,26 @@ urlpatterns = [
         include(
             (
                 [
-                    # Custom auth views - must come BEFORE dj_rest_auth.urls to override
+                    # dj-rest-auth
                     path(
                         "auth/password/reset/",
                         CustomPasswordResetView.as_view(),
                         name="rest_password_reset",
                     ),
-                    # path("auth/password/reset/confirm/<uidb64>/<token>/",
-                    # PasswordResetConfirmView.as_view(), name="password_reset_confirm"),
                     path(
-                        "auth/account-confirm-email/<str:key>",
+                        "auth/password/reset/confirm/<str:uidb64>/<str:token>/",
+                        PasswordResetConfirmView.as_view(),
+                        name="password_reset_confirm",
+                    ),
+                    path(
+                        "auth/registration/account-confirm-email/<str:key>/",
                         CustomVerifyEmailView.as_view(),
                         name="account_confirm_email",
                     ),
-                    # Default dj_rest_auth URLs (these come after custom views)
                     path("auth/", include("dj_rest_auth.urls")),
                     path(
                         "auth/registration/", include("dj_rest_auth.registration.urls")
                     ),
-                    # path(
-                    #     "auth/registration/verify-email/",
-                    #     VerifyEmailView.as_view(),
-                    #     name="rest_verify_email",
-                    # ),
                     # social logins
                     path(
                         "auth/google/",

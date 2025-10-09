@@ -18,6 +18,8 @@ dependencies = [
     "django-cors-headers>=4.9.0",
     "django-extensions>=4.1",
     "drf-yasg>=1.21.11",
+    "pytest>=8.4.2",
+    "pytest-django>=4.9.0",
 ]
 
 # Dev-only tools (not installed in runtime images)

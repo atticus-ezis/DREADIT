@@ -289,10 +289,7 @@ REST_FRAMEWORK = {
     },
 }
 
-# JWT
-REST_USE_JWT = True
-JWT_AUTH_COOKIE = "jwt-auth"
-JWT_AUTH_REFRESH_COOKIE = "jwt-refresh-token"
+# JWT - SimpleJWT configuration
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
@@ -300,12 +297,12 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+# dj-rest-auth configuration
 REST_AUTH = {
     "USE_JWT": True,
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
     "JWT_AUTH_HTTPONLY": False,
-    # Custom serializers ...
     "PASSWORD_RESET_CONFIRM_SERIALIZER": "dj_rest_auth.serializers.PasswordResetConfirmSerializer",
 }
 
