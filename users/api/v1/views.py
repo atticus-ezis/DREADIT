@@ -3,9 +3,8 @@ from allauth.account.forms import default_token_generator
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 from allauth.account.utils import user_pk_to_url_str
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
+from dj_rest_auth.jwt_auth import set_jwt_access_cookie, set_jwt_refresh_cookie
 from dj_rest_auth.registration.views import SocialLoginView, VerifyEmailView
 from dj_rest_auth.social_serializers import TwitterLoginSerializer
 from dj_rest_auth.views import PasswordResetView
@@ -15,54 +14,20 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import send_mail
 from django.http import HttpResponseRedirect
 from django.template.loader import render_to_string
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 from rest_framework import status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from users.models import User
 
 env = environ.Env()
 
 frontend_url = settings.FRONTEND_URL
 
 # Create your views here.
-
-
-def _set_jwt_cookies(resp, user):
-    refresh = RefreshToken.for_user(user)
-    access = refresh.access_token
-
-    # Pull names from REST_AUTH
-    access_name = settings.REST_AUTH.get("JWT_AUTH_COOKIE", "jwt-auth")
-    refresh_name = settings.REST_AUTH.get(
-        "JWT_AUTH_REFRESH_COOKIE", "jwt-refresh-token"
-    )
-
-    # Cookie security knobs (use your env)
-    secure = getattr(settings, "SESSION_COOKIE_SECURE", True)
-    samesite = settings.REST_AUTH.get("JWT_AUTH_SAMESITE", "Lax")
-    domain = getattr(settings, "SESSION_COOKIE_DOMAIN", None)
-
-    # Access cookie
-    resp.set_cookie(
-        access_name,
-        str(access),
-        max_age=5 * 60,  # match your SIMPLE_JWT ACCESS_TOKEN_LIFETIME
-        httponly=settings.REST_AUTH.get("JWT_AUTH_HTTPONLY", True),
-        secure=secure,
-        samesite=samesite,
-        domain=domain,
-        path="/",
-    )
-    # Refresh cookie
-    resp.set_cookie(
-        refresh_name,
-        str(refresh),
-        max_age=14 * 24 * 60 * 60,  # match your SIMPLE_JWT REFRESH_TOKEN_LIFETIME
-        httponly=settings.REST_AUTH.get("JWT_AUTH_HTTPONLY", True),
-        secure=secure,
-        samesite=samesite,
-        domain=domain,
-        path="/",
-    )
 
 
 class CustomVerifyEmailView(VerifyEmailView):
@@ -75,8 +40,11 @@ class CustomVerifyEmailView(VerifyEmailView):
                 emailconfirmation.confirm(request)
                 user = emailconfirmation.email_address.user
 
-                resp = HttpResponseRedirect(f"{frontend_url}/profile")
-                _set_jwt_cookies(resp, user)
+                resp = HttpResponseRedirect(f"{frontend_url}")
+                refresh = RefreshToken.for_user(user)
+                access = str(refresh.access_token)
+                set_jwt_access_cookie(resp, access)
+                set_jwt_refresh_cookie(resp, str(refresh))
                 return resp
 
             else:
@@ -86,8 +54,11 @@ class CustomVerifyEmailView(VerifyEmailView):
                     emailconfirmation.confirm(request)
                     user = emailconfirmation.email_address.user
 
-                    resp = HttpResponseRedirect(f"{frontend_url}/profile")
-                    _set_jwt_cookies(resp, user)
+                    resp = HttpResponseRedirect(f"{frontend_url}")
+                    refresh = RefreshToken.for_user(user)
+                    access = str(refresh.access_token)
+                    set_jwt_access_cookie(resp, access)
+                    set_jwt_refresh_cookie(resp, str(refresh))
                     return resp
                 else:
                     # Invalid or expired key
@@ -105,10 +76,57 @@ class CustomVerifyEmailView(VerifyEmailView):
 
 
 # Social Logins
-class GoogleLogin(SocialLoginView):
-    adapter_class = GoogleOAuth2Adapter
-    callback_url = env.str("GOOGLE_CALLBACK_URL")
-    client_class = OAuth2Client
+# class GoogleLogin(SocialLoginView):
+#     adapter_class = GoogleOAuth2Adapter
+#     callback_url = "postmessage"
+#     client_class = OAuth2Client
+
+
+@api_view(["POST"])
+def google_auth(request):
+    token = request.data.get("token")
+    if not token:
+        return Response(
+            {"error": "Missing 'token'."}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        id_info = id_token.verify_oauth2_token(
+            token, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
+        )
+
+        email = id_info["email"]
+
+        user, created = User.objects.get_or_create(email=email)
+
+        if created:
+            user.set_unusable_password()
+            user.username = email.split("@")[0]
+            user.registration_method = "google"
+            user.save()
+
+        else:
+            if user.registration_method != "google":
+                return Response(
+                    {"error": "User needs to sign in through email", "status": False},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                "status": True,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": f"Invalid Token: {e}"}, status=status.HTTP_502_BAD_GATEWAY
+        )
 
 
 class FacebookLogin(SocialLoginView):

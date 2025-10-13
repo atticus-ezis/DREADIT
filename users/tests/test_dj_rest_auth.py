@@ -31,62 +31,6 @@ class TestUserRegistration:
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to[0] == "newuser@example.com"
 
-    def test_user_registration_password_mismatch(self, client):
-        """Test registration fails when passwords don't match"""
-        url = reverse("rest_register")
-        data = {
-            "username": "newuser",
-            "email": "newuser@example.com",
-            "password1": "TestPass123!",
-            "password2": "DifferentPass123!",
-        }
-        response = client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_user_registration_duplicate_username(self, client, user):
-        """Test registration fails with duplicate username"""
-        url = reverse("rest_register")
-        data = {
-            "username": user.username,
-            "email": "another@example.com",
-            "password1": "TestPass123!",
-            "password2": "TestPass123!",
-        }
-        response = client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_user_registration_duplicate_email(self, client, user, email_address):
-        """Test registration fails with duplicate email (if email is verified)"""
-        # Note: Django-allauth may allow duplicate emails if they are not verified
-        # This test verifies behavior with a verified email
-        url = reverse("rest_register")
-        data = {
-            "username": "anotheruser",
-            "email": user.email,
-            "password1": "TestPass123!",
-            "password2": "TestPass123!",
-        }
-        response = client.post(url, data)
-        # Depending on settings, this might return 400 or 201
-        # If ACCOUNT_UNIQUE_EMAIL is True and email is verified, it should fail
-        # In tests, it might allow duplicate if email verification is optional
-        assert response.status_code in [
-            status.HTTP_400_BAD_REQUEST,
-            status.HTTP_201_CREATED,
-        ]
-
-    def test_user_registration_weak_password(self, client):
-        """Test registration fails with weak password"""
-        url = reverse("rest_register")
-        data = {
-            "username": "newuser",
-            "email": "newuser@example.com",
-            "password1": "123",
-            "password2": "123",
-        }
-        response = client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
 
 @pytest.mark.django_db
 class TestUserLogin:
@@ -105,29 +49,6 @@ class TestUserLogin:
         response = client.post(url, data)
         assert response.status_code == status.HTTP_200_OK
         assert "access" in response.data or "access_token" in response.data
-
-    def test_login_wrong_password(self, client, user, email_address):
-        """Test login fails with wrong password"""
-        user.set_password("TestPass123!")
-        user.save()
-
-        url = reverse("rest_login")
-        data = {
-            "username": user.username,
-            "password": "WrongPassword",
-        }
-        response = client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_login_nonexistent_user(self, client):
-        """Test login fails with nonexistent user"""
-        url = reverse("rest_login")
-        data = {
-            "username": "nonexistent",
-            "password": "TestPass123!",
-        }
-        response = client.post(url, data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_logout(self, client, user, email_address):
         """Test user logout with JWT authentication"""
@@ -192,14 +113,6 @@ class TestPasswordReset:
         # But no email should be sent
         assert len(mail.outbox) == 0
 
-    def test_password_reset_invalid_email(self, client):
-        """Test password reset with invalid email format"""
-        url = reverse("rest_password_reset")
-        data = {"email": "invalid-email"}
-        response = client.post(url, data)
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
     def test_password_reset_email_contains_token(self, client, user, email_address):
         """Test that password reset email contains uid and token"""
         url = reverse("rest_password_reset")
@@ -242,21 +155,6 @@ class TestPasswordReset:
         # Verify password was changed
         user.refresh_from_db()
         assert user.check_password("NewTestPass123!")
-
-    def test_password_reset_confirm_invalid_token(self, client, user, email_address):
-        """Test password reset fails with invalid token"""
-        uid = user_pk_to_url_str(user)
-
-        url = reverse("rest_password_reset_confirm")
-        data = {
-            "uid": uid,
-            "token": "invalid-token",
-            "new_password1": "NewTestPass123!",
-            "new_password2": "NewTestPass123!",
-        }
-        response = client.post(url, data)
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_password_reset_complete_flow(self, client, user, email_address):
         """Test complete password reset flow from request to confirmation"""

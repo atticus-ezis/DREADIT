@@ -281,7 +281,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-        "dj_rest_auth.jwt_auth.JWTCookieAuthentication",
+        # "dj_rest_auth.jwt_auth.JWTCookieAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_THROTTLE_RATES": {
@@ -302,7 +302,7 @@ REST_AUTH = {
     "USE_JWT": True,
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
-    "JWT_AUTH_HTTPONLY": False,
+    "JWT_AUTH_HTTPONLY": True,
     "PASSWORD_RESET_CONFIRM_SERIALIZER": "dj_rest_auth.serializers.PasswordResetConfirmSerializer",
 }
 
@@ -330,3 +330,8 @@ SWAGGER_SETTINGS = {
         },
     },
 }
+
+
+# Reuse the same Google OAuth credentials for custom authentication
+GOOGLE_OAUTH_CLIENT_ID = env.str("GOOGLE_CLIENT_ID")
+GOOGLE_OAUTH_CLIENT_SECRET = env.str("GOOGLE_CLIENT_SECRET")

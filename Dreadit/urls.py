@@ -30,11 +30,14 @@ from users.api.v1.views import (
     CustomPasswordResetView,
     CustomVerifyEmailView,
     FacebookLogin,
-    GoogleLogin,
     TwitterLogin,
+    google_auth,
 )
 
 # password reset
+
+# def callback(request):
+#     return HttpResponse("Callback")
 
 
 def health(request):
@@ -47,8 +50,9 @@ def home(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("health/", health),
+    path("health/", health, name="health"),
     path("home/", home, name="home"),
+    # path("callback/", callback, name="callback"),
     # rest urls
     path(
         "api/v1/",
@@ -77,8 +81,8 @@ urlpatterns = [
                     ),
                     # social logins
                     path(
-                        "auth/google/",
-                        GoogleLogin.as_view(),
+                        "auth/google-login/",
+                        google_auth,
                         name="google_login",
                     ),
                     path(

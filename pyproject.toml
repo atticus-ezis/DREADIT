@@ -20,6 +20,7 @@ dependencies = [
     "drf-yasg>=1.21.11",
     "pytest>=8.4.2",
     "pytest-django>=4.9.0",
+    "google-auth>=2.41.1",
 ]
 
 # Dev-only tools (not installed in runtime images)
