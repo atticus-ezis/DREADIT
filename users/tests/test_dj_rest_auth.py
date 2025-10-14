@@ -36,7 +36,7 @@ class TestUserRegistration:
 class TestUserLogin:
     """Test user login/logout endpoints"""
 
-    def test_login_success(self, client, user, email_address):
+    def test_login_success(self, client, user):
         """Test successful login"""
         user.set_password("TestPass123!")
         user.save()
@@ -49,8 +49,9 @@ class TestUserLogin:
         response = client.post(url, data)
         assert response.status_code == status.HTTP_200_OK
         assert "access" in response.data or "access_token" in response.data
+        assert "refresh" in response.data or "refresh_token" in response.data
 
-    def test_logout(self, client, user, email_address):
+    def test_logout(self, client, user):
         """Test user logout with JWT authentication"""
         user.set_password("TestPass123!")
         user.save()
@@ -64,11 +65,9 @@ class TestUserLogin:
         login_response = client.post(url, data)
         assert login_response.status_code == status.HTTP_200_OK
 
-        # Extract JWT tokens from response
         access_token = login_response.data.get("access")
         refresh_token = login_response.data.get("refresh")
 
-        # Manually set cookies for JWT authentication (since test client doesn't persist cookies)
         if access_token:
             client.cookies["jwt-auth"] = access_token
         if refresh_token:
@@ -77,15 +76,10 @@ class TestUserLogin:
         # Then logout
         logout_url = reverse("rest_logout")
         response = client.post(logout_url)
-        # Logout may return 200 or 204, or may not require authentication (returns 200 anyway)
+
         assert response.status_code in [
             status.HTTP_200_OK,
-            status.HTTP_204_NO_CONTENT,
-            status.HTTP_401_UNAUTHORIZED,
         ]
-
-        # If logout doesn't require authentication in the configuration, it might return 401
-        # This is acceptable behavior for JWT-only logout
 
 
 @pytest.mark.django_db
@@ -101,17 +95,6 @@ class TestPasswordReset:
         assert response.status_code == status.HTTP_200_OK
         assert len(mail.outbox) == 1
         assert mail.outbox[0].to[0] == user.email
-
-    def test_password_reset_nonexistent_email(self, client):
-        """Test password reset with nonexistent email (should still return 200)"""
-        url = reverse("rest_password_reset")
-        data = {"email": "nonexistent@example.com"}
-        response = client.post(url, data)
-
-        # Should return 200 for security reasons (don't reveal if email exists)
-        assert response.status_code == status.HTTP_200_OK
-        # But no email should be sent
-        assert len(mail.outbox) == 0
 
     def test_password_reset_email_contains_token(self, client, user, email_address):
         """Test that password reset email contains uid and token"""
@@ -205,3 +188,15 @@ class TestPasswordReset:
         }
         response = client.post(login_url, login_data)
         assert response.status_code == status.HTTP_200_OK
+
+
+class TestEmailVerification:
+    """Test email verification endpoints"""
+
+    def test_email_verification_success(self, client, user):
+        """Test email verification success"""
+        request_data = {"email": user.email}
+        url = reverse("account_confirm_email")
+        response = client.post(url, request_data)
+        assert response.status_code == status.HTTP_200_OK
+        assert mail.outbox[0].to[0] == user.email

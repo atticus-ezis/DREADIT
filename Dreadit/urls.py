@@ -28,7 +28,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from users.api.v1.views import (
     CustomPasswordResetView,
-    CustomVerifyEmailView,
     FacebookLogin,
     TwitterLogin,
     google_auth,
@@ -70,11 +69,12 @@ urlpatterns = [
                         PasswordResetConfirmView.as_view(),
                         name="password_reset_confirm",
                     ),
-                    path(
-                        "auth/registration/account-confirm-email/<str:key>/",
-                        CustomVerifyEmailView.as_view(),
-                        name="account_confirm_email",
-                    ),
+                    # Email
+                    # path(
+                    #     "auth/registration/account-confirm-email/<str:key>/",
+                    #     CustomVerifyEmailView.as_view(),
+                    #     name="account_confirm_email",
+                    # ),
                     path("auth/", include("dj_rest_auth.urls")),
                     path(
                         "auth/registration/", include("dj_rest_auth.registration.urls")

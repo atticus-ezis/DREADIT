@@ -31,11 +31,10 @@ DEBUG = env.bool("DEBUG", default=True)
 PRODUCTION = env.bool("PRODUCTION", False)
 USE_POSTGRES = env.bool("USE_POSTGRES", False)
 
-
-# if PRODUCTION:
-#     SECURE_SSL_REDIRECT = True
-#     SESSION_COOKIE_SECURE = True
-#     CSRF_COOKIE_SECURE = True
+if PRODUCTION:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
@@ -241,6 +240,9 @@ else:
     EMAIL_HOST_USER = ""
     EMAIL_HOST_PASSWORD = ""
     DEFAULT_FROM_EMAIL = "noreply@localhost"
+
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = f"{FRONTEND_URL}/login"
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = f"{FRONTEND_URL}/app"
 
 # Allauth
 ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]

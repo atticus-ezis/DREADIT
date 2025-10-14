@@ -75,13 +75,6 @@ class CustomVerifyEmailView(VerifyEmailView):
             )
 
 
-# Social Logins
-# class GoogleLogin(SocialLoginView):
-#     adapter_class = GoogleOAuth2Adapter
-#     callback_url = "postmessage"
-#     client_class = OAuth2Client
-
-
 @api_view(["POST"])
 def google_auth(request):
     token = request.data.get("token")
@@ -136,23 +129,6 @@ class FacebookLogin(SocialLoginView):
 class TwitterLogin(SocialLoginView):
     adapter_class = TwitterOAuthAdapter
     serializer_class = TwitterLoginSerializer
-
-
-# class CustomPasswordResetConfirmView(PasswordResetConfirmView):
-#     """
-#     Custom password reset confirm view that handles allauth password reset URLs
-#     and redirects to frontend after successful reset
-#     """
-
-#     template_name = "account/password_reset_confirm.html"
-#     success_url = "/"
-
-#     def form_valid(self, form):
-#         # Call parent form_valid to reset the password
-#         super().form_valid(form)
-
-#         # Redirect to frontend with success message
-#         return HttpResponseRedirect(f"{frontend_url}/login?reset=success")
 
 
 class CustomPasswordResetView(PasswordResetView):
