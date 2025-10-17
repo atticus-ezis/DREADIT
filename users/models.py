@@ -11,7 +11,9 @@ class User(AbstractUser):
 
     bio = models.TextField(blank=True)
     registration_method = models.CharField(
-        max_length=20, choices=RegistrationMethod.choices, blank=True
+        max_length=20,
+        choices=RegistrationMethod.choices,
+        default=RegistrationMethod.LOCAL,
     )
 
     def __str__(self):

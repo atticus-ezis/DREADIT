@@ -27,6 +27,15 @@ SECRET_KEY = env.str("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
+# FRONTEND URLS
+
+FRONTEND_URL = env.str("FRONTEND_URL", "http://localhost:3000")
+
+VERIFY_EMAIL_URL = env.str("VERIFY_EMAIL_URL", "/email/verify?key=")  # soon to remove
+
+PASSWORD_RESET_URL = env.str("PASSWORD_RESET_URL", "/password/reset/")
+
+
 # Production vs Dev
 PRODUCTION = env.bool("PRODUCTION", False)
 USE_POSTGRES = env.bool("USE_POSTGRES", False)
@@ -44,8 +53,6 @@ if DEBUG:
     ALLOWED_HOSTS.append("*")
 
 SITE_ID = 1
-
-FRONTEND_URL = env.str("FRONTEND_URL", "http://localhost:3000")
 
 # Application definition
 
@@ -79,7 +86,6 @@ THIRD_PARTY_APPS = [
     "oauth2_provider",
     # social providers
     "allauth.socialaccount",
-    "allauth.socialaccount.providers.google",
     "allauth.socialaccount.providers.facebook",
     "allauth.socialaccount.providers.twitter_oauth2",
 ]
@@ -109,14 +115,8 @@ MIDDLEWARE = [
 ROOT_URLCONF = "dreadit.urls"
 
 # Provider specific settings
+# Note: Google auth uses custom implementation (google_auth view), not allauth provider
 SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "APP": {
-            "client_id": env.str("GOOGLE_CLIENT_ID"),
-            "secret": env.str("GOOGLE_CLIENT_SECRET"),
-            "key": "",
-        }
-    },
     "facebook": {
         "APP": {
             "client_id": env.str("FACEBOOK_CLIENT_ID"),
@@ -241,8 +241,8 @@ else:
     EMAIL_HOST_PASSWORD = ""
     DEFAULT_FROM_EMAIL = "noreply@localhost"
 
-ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = f"{FRONTEND_URL}/login"
-ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = f"{FRONTEND_URL}/app"
+# ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = f"{FRONTEND_URL}/login"
+# ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = f"{FRONTEND_URL}/app"
 
 # Allauth
 ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
@@ -252,6 +252,8 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_ADAPTER = "users.adapters.CustomDefaultAccountAdapter"
+ACCOUNT_EMAIL_CONFIRMATION_HMAC = True
 # LOGIN_URL
 LOGIN_REDIRECT_URL = "/"
 OLD_PASSWORD_FIELD_ENABLED = True
@@ -262,16 +264,6 @@ ACCOUNT_PASSWORD_RESET_EXPIRE_DAYS = 1  # Password reset link expires in 1 day
 ACCOUNT_USERNAME_MIN_LENGTH = 3
 ACCOUNT_PASSWORD_MIN_LENGTH = 8
 
-
-# Password reset URLs are handled by custom views in urls.py
-
-# Modern allauth configuration - using dictionary format as suggested by warnings
-# ACCOUNT_SIGNUP_FIELDS = {
-#     'username': {'required': True},
-#     'password1': {'required': True},
-#     'password2': {'required': True},
-# }
-
 # Explicitly set login methods to match signup fields
 ACCOUNT_LOGIN_METHODS = ["username", "email"]
 
@@ -281,10 +273,10 @@ SILENCED_SYSTEM_CHECKS = ["account.W001"]
 # REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "dj_rest_auth.jwt_auth.JWTCookieAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
-        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-        # "dj_rest_auth.jwt_auth.JWTCookieAuthentication",
         "rest_framework.authentication.SessionAuthentication",
+        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "apikey": env.str("API_RATE_LIMIT", "100/minute"),
@@ -305,7 +297,12 @@ REST_AUTH = {
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
     "JWT_AUTH_HTTPONLY": True,
-    "PASSWORD_RESET_CONFIRM_SERIALIZER": "dj_rest_auth.serializers.PasswordResetConfirmSerializer",
+    # csrf protection
+    "JWT_AUTH_SAMESITE": "Lax",  # ⚠️ ADD THIS!
+    "JWT_AUTH_SECURE": not DEBUG,
+    # "JWT_AUTH_COOKIE_USE_CSRF": True,
+    # serializer configuration
+    "USER_DETAILS_SERIALIZER": "users.api.v1.serializers.CustomUserDetailsSerializer",
 }
 
 CORS_ALLOWED_ORIGINS = env.list(
@@ -314,6 +311,12 @@ CORS_ALLOWED_ORIGINS = env.list(
 )
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Allow your frontend origin for CSRF
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://127.0.0.1:3000", "http://localhost:3000"],
+)
 
 # Configure AWS s3 media seperatley
 

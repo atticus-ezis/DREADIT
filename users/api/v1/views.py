@@ -1,10 +1,11 @@
-import environ
+import traceback
+
 from allauth.account.forms import default_token_generator
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 from allauth.account.utils import user_pk_to_url_str
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
-from dj_rest_auth.jwt_auth import set_jwt_access_cookie, set_jwt_refresh_cookie
+from dj_rest_auth.jwt_auth import set_jwt_cookies
 from dj_rest_auth.registration.views import SocialLoginView, VerifyEmailView
 from dj_rest_auth.social_serializers import TwitterLoginSerializer
 from dj_rest_auth.views import PasswordResetView
@@ -12,67 +13,112 @@ from django.conf import settings
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.mail import send_mail
-from django.http import HttpResponseRedirect
 from django.template.loader import render_to_string
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import User
 
-env = environ.Env()
-
-frontend_url = settings.FRONTEND_URL
-
-# Create your views here.
-
 
 class CustomVerifyEmailView(VerifyEmailView):
-    def get(self, request, key):
+    def post(self, request):
+        key = request.data.get("key")
+        print(f"Key: {key}")
+        if not key:
+            raise ValidationError({"key": [("Missing verification key.")]})
+
         try:
-            emailconfirmation = EmailConfirmation.objects.filter(key=key).first()
+            emailconfirmation = EmailConfirmation.objects.filter(
+                key=key
+            ).first() or EmailConfirmationHMAC.from_key(key)
+            if not emailconfirmation:
+                raise ValidationError({"key": [("Invalid verification key.")]})
 
-            if emailconfirmation:
-                # Confirm the email
-                emailconfirmation.confirm(request)
-                user = emailconfirmation.email_address.user
+            user = emailconfirmation.email_address.user
 
-                resp = HttpResponseRedirect(f"{frontend_url}")
-                refresh = RefreshToken.for_user(user)
-                access = str(refresh.access_token)
-                set_jwt_access_cookie(resp, access)
-                set_jwt_refresh_cookie(resp, str(refresh))
-                return resp
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
 
-            else:
-                # Try HMAC confirmation (for emails sent without storing in DB)
-                emailconfirmation = EmailConfirmationHMAC.from_key(key)
-                if emailconfirmation:
-                    emailconfirmation.confirm(request)
-                    user = emailconfirmation.email_address.user
+            resp = Response(
+                {
+                    "detail": "Email confirmed successfully",
+                },
+                status=status.HTTP_200_OK,
+            )
+            set_jwt_cookies(resp, str(access), str(refresh))
+            return resp
 
-                    resp = HttpResponseRedirect(f"{frontend_url}")
-                    refresh = RefreshToken.for_user(user)
-                    access = str(refresh.access_token)
-                    set_jwt_access_cookie(resp, access)
-                    set_jwt_refresh_cookie(resp, str(refresh))
-                    return resp
-                else:
-                    # Invalid or expired key
-                    return Response(
-                        {"key": [("Verification key has expired")]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-        except Exception:
-            # Handle any errors
+        except Exception as e:
+            print(f"Error: {e}")
+            print(traceback.format_exc())
             return Response(
-                {"key": [("Verification key has expired")]},
+                {"key": [f"Error: {str(e)}"]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class CustomPasswordResetView(PasswordResetView):
+    def post(self, request, *args, **kwargs):
+        # Create a form instance with the POST data
+        form = PasswordResetForm(request.data)
+
+        if form.is_valid():
+            # Get current site
+            current_site = get_current_site(request)
+
+            # Process each user individually to get uid for each
+            for user in form.get_users(form.cleaned_data["email"]):
+                # Generate token and uid (using allauth's base36 encoding)
+                token = default_token_generator.make_token(user)
+                uid = user_pk_to_url_str(user)
+
+                # Build the reset URL with uid and token
+                frontend_path = settings.PASSWORD_RESET_URL + uid + "/" + token + "/"
+                reset_url = settings.FRONTEND_URL + frontend_path
+
+                # Create email context
+                context = {
+                    "email": user.email,
+                    "domain": current_site.domain,
+                    "site_name": current_site.name,
+                    "uid": uid,
+                    "token": token,
+                    "protocol": "https" if request.is_secure() else "http",
+                    "user": user,
+                    "reset_url": reset_url,
+                }
+
+                # Render email subject and body
+                subject = render_to_string(
+                    "account/password_reset_subject.txt", context
+                )
+                subject = "".join(subject.splitlines())
+                body = render_to_string("account/password_reset_email.html", context)
+
+                # Send email
+                send_mail(
+                    subject,
+                    body,
+                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
+                    [user.email],
+                    html_message=None,
+                )
+
+            return Response(
+                {"detail": "Password reset e-mail has been sent."},
+                status=status.HTTP_200_OK,
+            )
+
+        # If form is invalid, return errors
+        return Response(
+            {"email": ["Enter a valid email address."]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 @api_view(["POST"])
@@ -129,61 +175,3 @@ class FacebookLogin(SocialLoginView):
 class TwitterLogin(SocialLoginView):
     adapter_class = TwitterOAuthAdapter
     serializer_class = TwitterLoginSerializer
-
-
-class CustomPasswordResetView(PasswordResetView):
-    def post(self, request, *args, **kwargs):
-        # Create a form instance with the POST data
-        form = PasswordResetForm(request.data)
-
-        if form.is_valid():
-            # Get current site
-            current_site = get_current_site(request)
-
-            # Process each user individually to get uid for each
-            for user in form.get_users(form.cleaned_data["email"]):
-                # Generate token and uid (using allauth's base36 encoding)
-                token = default_token_generator.make_token(user)
-                uid = user_pk_to_url_str(user)
-
-                # Build the reset URL with uid and token
-                reset_url = f"{frontend_url}/password-reset/confirm/{uid}/{token}/"
-
-                # Create email context
-                context = {
-                    "email": user.email,
-                    "domain": current_site.domain,
-                    "site_name": current_site.name,
-                    "uid": uid,
-                    "token": token,
-                    "protocol": "https" if request.is_secure() else "http",
-                    "user": user,
-                    "reset_url": reset_url,
-                }
-
-                # Render email subject and body
-                subject = render_to_string(
-                    "account/password_reset_subject.txt", context
-                )
-                subject = "".join(subject.splitlines())
-                body = render_to_string("account/password_reset_email.html", context)
-
-                # Send email
-                send_mail(
-                    subject,
-                    body,
-                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
-                    [user.email],
-                    html_message=None,
-                )
-
-            return Response(
-                {"detail": "Password reset e-mail has been sent."},
-                status=status.HTTP_200_OK,
-            )
-
-        # If form is invalid, return errors
-        return Response(
-            {"email": ["Enter a valid email address."]},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
