@@ -1,19 +1,28 @@
-import logging
-
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.account.forms import default_token_generator
+from allauth.account.utils import user_pk_to_url_str
 from django.conf import settings
-
-logger = logging.getLogger(__name__)
 
 # creates url for email confirmation
 
 
-class CustomDefaultAccountAdapter(DefaultAccountAdapter):
-    def get_email_confirmation_url(self, request, emailconfirmation):
-        key = emailconfirmation.key
-        logger.info(f"🔑 Email verification key: {key}")
-        front_end_path = settings.VERIFY_EMAIL_URL + key
+class CustomAccountAdapter(DefaultAccountAdapter):
 
-        email_confirmation_url = settings.FRONTEND_URL + front_end_path
+    def send_mail(self, template_prefix, email, context):
+        if "email_confirmation" in template_prefix:
+            if "key" in context:
+                key = context["key"]
+                context["activate_url"] = (
+                    f"{settings.FRONTEND_URL}{settings.VERIFY_EMAIL_URL}{key}"
+                )
 
-        return email_confirmation_url
+        if "password_reset_key" in template_prefix:
+            user = context.get("user")
+            if user:
+                uid = user_pk_to_url_str(user)
+                token = default_token_generator.make_token(user)
+                context["password_reset_url"] = (
+                    f"{settings.FRONTEND_URL}{settings.PASSWORD_RESET_URL}{uid}/{token}/"
+                )
+
+        return super().send_mail(template_prefix, email, context)

@@ -1,19 +1,15 @@
 import traceback
 
-from allauth.account.forms import default_token_generator
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
-from allauth.account.utils import user_pk_to_url_str
+from allauth.account.utils import url_str_to_user_pk
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 from allauth.socialaccount.providers.twitter.views import TwitterOAuthAdapter
 from dj_rest_auth.jwt_auth import set_jwt_cookies
 from dj_rest_auth.registration.views import SocialLoginView, VerifyEmailView
 from dj_rest_auth.social_serializers import TwitterLoginSerializer
-from dj_rest_auth.views import PasswordResetView
+from dj_rest_auth.views import PasswordResetConfirmView
 from django.conf import settings
-from django.contrib.auth.forms import PasswordResetForm
-from django.contrib.sites.shortcuts import get_current_site
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
+from django.contrib.auth import get_user_model
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from rest_framework import status
@@ -25,6 +21,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from users.models import User
 
 
+# can replace with APIView?
 class CustomVerifyEmailView(VerifyEmailView):
     def post(self, request):
         key = request.data.get("key")
@@ -39,6 +36,8 @@ class CustomVerifyEmailView(VerifyEmailView):
             if not emailconfirmation:
                 raise ValidationError({"key": [("Invalid verification key.")]})
 
+            emailconfirmation.confirm(request)
+
             user = emailconfirmation.email_address.user
 
             refresh = RefreshToken.for_user(user)
@@ -47,6 +46,8 @@ class CustomVerifyEmailView(VerifyEmailView):
             resp = Response(
                 {
                     "detail": "Email confirmed successfully",
+                    "access": str(access),
+                    "refresh": str(refresh),
                 },
                 status=status.HTTP_200_OK,
             )
@@ -62,63 +63,45 @@ class CustomVerifyEmailView(VerifyEmailView):
             )
 
 
-class CustomPasswordResetView(PasswordResetView):
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """
+    Custom password reset confirm view that automatically logs the user in
+    after successful password reset by returning JWT tokens and setting cookies.
+    """
+
     def post(self, request, *args, **kwargs):
-        # Create a form instance with the POST data
-        form = PasswordResetForm(request.data)
 
-        if form.is_valid():
-            # Get current site
-            current_site = get_current_site(request)
+        try:
+            response = super().post(request, *args, **kwargs)
 
-            # Process each user individually to get uid for each
-            for user in form.get_users(form.cleaned_data["email"]):
-                # Generate token and uid (using allauth's base36 encoding)
-                token = default_token_generator.make_token(user)
-                uid = user_pk_to_url_str(user)
+            if response.status_code == status.HTTP_200_OK:
+                User = get_user_model()
+                uid = request.data.get("uid")
 
-                # Build the reset URL with uid and token
-                frontend_path = settings.PASSWORD_RESET_URL + uid + "/" + token + "/"
-                reset_url = settings.FRONTEND_URL + frontend_path
+                # Decode uid using allauth's base36 decoder
+                user_pk = url_str_to_user_pk(uid)
+                user = User.objects.get(pk=user_pk)
 
-                # Create email context
-                context = {
-                    "email": user.email,
-                    "domain": current_site.domain,
-                    "site_name": current_site.name,
-                    "uid": uid,
-                    "token": token,
-                    "protocol": "https" if request.is_secure() else "http",
-                    "user": user,
-                    "reset_url": reset_url,
-                }
+                # Generate JWT tokens
+                refresh = RefreshToken.for_user(user)
+                access = refresh.access_token
 
-                # Render email subject and body
-                subject = render_to_string(
-                    "account/password_reset_subject.txt", context
-                )
-                subject = "".join(subject.splitlines())
-                body = render_to_string("account/password_reset_email.html", context)
+                # Add tokens to response data
+                response.data["access"] = str(access)
+                response.data["refresh"] = str(refresh)
 
-                # Send email
-                send_mail(
-                    subject,
-                    body,
-                    getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
-                    [user.email],
-                    html_message=None,
-                )
+                # Set JWT cookies
+                set_jwt_cookies(response, str(access), str(refresh))
 
+            return response
+
+        except Exception as e:
+            print(f"Error in CustomPasswordResetConfirmView: {e}")
+            print(traceback.format_exc())
             return Response(
-                {"detail": "Password reset e-mail has been sent."},
-                status=status.HTTP_200_OK,
+                {"detail": [f"Error: {str(e)}"]},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # If form is invalid, return errors
-        return Response(
-            {"email": ["Enter a valid email address."]},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
 
 
 @api_view(["POST"])
@@ -151,7 +134,7 @@ def google_auth(request):
                 )
 
         refresh = RefreshToken.for_user(user)
-        return Response(
+        resp = Response(
             {
                 "tokens": {
                     "access": str(refresh.access_token),
@@ -161,7 +144,8 @@ def google_auth(request):
             },
             status=status.HTTP_200_OK,
         )
-
+        set_jwt_cookies(resp, str(refresh.access_token), str(refresh))
+        return resp
     except Exception as e:
         return Response(
             {"error": f"Invalid Token: {e}"}, status=status.HTTP_502_BAD_GATEWAY

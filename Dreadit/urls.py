@@ -15,11 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from dj_rest_auth.views import PasswordResetConfirmView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import include, path
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
@@ -27,7 +26,7 @@ from rest_framework import permissions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from users.api.v1.views import (
-    CustomPasswordResetView,
+    CustomPasswordResetConfirmView,
     CustomVerifyEmailView,
     FacebookLogin,
     TwitterLogin,
@@ -59,22 +58,23 @@ urlpatterns = [
         include(
             (
                 [
-                    # Password reset
-                    path(
-                        "auth/password/reset/",
-                        CustomPasswordResetView.as_view(),
-                        name="custom_rest_password_reset",
-                    ),
-                    path(
-                        "auth/password/reset/confirm/",
-                        PasswordResetConfirmView.as_view(),
-                        name="custom_password_reset_confirm",
-                    ),
-                    # Email verification
                     path(
                         "auth/registration/account-confirm-email/",
                         CustomVerifyEmailView.as_view(),
                         name="account_confirm_email",
+                    ),
+                    path(
+                        "auth/password/reset/confirm/",
+                        CustomPasswordResetConfirmView.as_view(),
+                        name="custom_password_reset_confirm",
+                    ),
+                    path(
+                        "password-reset-confirm/<uidb64>/<token>/",
+                        lambda request, uidb64, token: HttpResponseRedirect(
+                            f"{settings.FRONTEND_URL}{settings.PASSWORD_RESET_URL}"
+                            f"?uid={uidb64}&token={token}"
+                        ),
+                        name="password_reset_confirm",
                     ),
                     path("auth/", include("dj_rest_auth.urls")),
                     path(

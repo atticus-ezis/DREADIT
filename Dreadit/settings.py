@@ -27,32 +27,9 @@ SECRET_KEY = env.str("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool("DEBUG", default=True)
 
-# FRONTEND URLS
-
-FRONTEND_URL = env.str("FRONTEND_URL", "http://localhost:3000")
-
-VERIFY_EMAIL_URL = env.str("VERIFY_EMAIL_URL", "/email/verify?key=")  # soon to remove
-
-PASSWORD_RESET_URL = env.str("PASSWORD_RESET_URL", "/password/reset/")
-
-
 # Production vs Dev
 PRODUCTION = env.bool("PRODUCTION", False)
 USE_POSTGRES = env.bool("USE_POSTGRES", False)
-
-if PRODUCTION:
-    SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
-
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-
-if DEBUG:
-    ALLOWED_HOSTS.append("*")
-
-SITE_ID = 1
 
 # Application definition
 
@@ -114,24 +91,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "dreadit.urls"
 
-# Provider specific settings
-# Note: Google auth uses custom implementation (google_auth view), not allauth provider
-SOCIALACCOUNT_PROVIDERS = {
-    "facebook": {
-        "APP": {
-            "client_id": env.str("FACEBOOK_CLIENT_ID"),
-            "secret": env.str("FACEBOOK_CLIENT_SECRET"),
-            "key": "",
-        }
-    },
-    "twitter_oauth2": {
-        "SCOPE": ["users.read", "tweet.read", "offline.access"],
-        "APP": {
-            "client_id": env.str("TWITTER_CLIENT_ID"),
-            "secret": env.str("TWITTER_CLIENT_SECRET"),
-        },
-    },
-}
 
 TEMPLATES = [
     {
@@ -249,10 +208,12 @@ ACCOUNT_SIGNUP_FIELDS = ["username*", "email", "password1*", "password2*"]
 ACCOUNT_EMAIL_TEMPLATE_EXTENSION = "html"
 ACCOUNT_USER_MODEL_USERNAME_FIELD = "username"
 ACCOUNT_EMAIL_VERIFICATION = "optional"
-ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_ADAPTER = "users.adapters.CustomDefaultAccountAdapter"
+
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
+
 ACCOUNT_EMAIL_CONFIRMATION_HMAC = True
 # LOGIN_URL
 LOGIN_REDIRECT_URL = "/"
@@ -260,15 +221,15 @@ OLD_PASSWORD_FIELD_ENABLED = True
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 
 # Password reset configuration
-ACCOUNT_PASSWORD_RESET_EXPIRE_DAYS = 1  # Password reset link expires in 1 day
+ACCOUNT_PASSWORD_RESET_EXPIRE_DAYS = 1
 ACCOUNT_USERNAME_MIN_LENGTH = 3
 ACCOUNT_PASSWORD_MIN_LENGTH = 8
 
 # Explicitly set login methods to match signup fields
 ACCOUNT_LOGIN_METHODS = ["username", "email"]
-
-# Suppress the known conflict warning - this is a known issue with django-allauth
 SILENCED_SYSTEM_CHECKS = ["account.W001"]
+
+ACCOUNT_ADAPTER = "users.adapters.CustomAccountAdapter"
 
 # REST Framework
 REST_FRAMEWORK = {
@@ -297,13 +258,49 @@ REST_AUTH = {
     "JWT_AUTH_COOKIE": "jwt-auth",
     "JWT_AUTH_REFRESH_COOKIE": "jwt-refresh-token",
     "JWT_AUTH_HTTPONLY": True,
+    "JWT_AUTH_RETURN_EXPIRATION": True,
     # csrf protection
-    "JWT_AUTH_SAMESITE": "Lax",  # ⚠️ ADD THIS!
+    "JWT_AUTH_SAMESITE": "Lax",
     "JWT_AUTH_SECURE": not DEBUG,
     # "JWT_AUTH_COOKIE_USE_CSRF": True,
     # serializer configuration
-    "USER_DETAILS_SERIALIZER": "users.api.v1.serializers.CustomUserDetailsSerializer",
 }
+
+# Provider specific settings
+# Note: Google auth uses custom implementation
+# (google_auth view), not allauth provider
+SOCIALACCOUNT_PROVIDERS = {
+    "facebook": {
+        "APP": {
+            "client_id": env.str("FACEBOOK_CLIENT_ID"),
+            "secret": env.str("FACEBOOK_CLIENT_SECRET"),
+            "key": "",
+        }
+    },
+    "twitter_oauth2": {
+        "SCOPE": ["users.read", "tweet.read", "offline.access"],
+        "APP": {
+            "client_id": env.str("TWITTER_CLIENT_ID"),
+            "secret": env.str("TWITTER_CLIENT_SECRET"),
+        },
+    },
+}
+
+
+# Host configuration
+if PRODUCTION:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if DEBUG:
+    ALLOWED_HOSTS.append("*")
+
+SITE_ID = 1
 
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",
@@ -317,8 +314,6 @@ CSRF_TRUSTED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",
     default=["http://127.0.0.1:3000", "http://localhost:3000"],
 )
-
-# Configure AWS s3 media seperatley
 
 # Media files
 MEDIA_URL = "/media/"
@@ -336,7 +331,12 @@ SWAGGER_SETTINGS = {
     },
 }
 
-
 # Reuse the same Google OAuth credentials for custom authentication
 GOOGLE_OAUTH_CLIENT_ID = env.str("GOOGLE_CLIENT_ID")
 GOOGLE_OAUTH_CLIENT_SECRET = env.str("GOOGLE_CLIENT_SECRET")
+
+# frontend urls
+FRONTEND_DOMAIN = "localhost:3000"
+FRONTEND_URL = f"{ACCOUNT_DEFAULT_HTTP_PROTOCOL}://{FRONTEND_DOMAIN}/"
+VERIFY_EMAIL_URL = "verify-email/"
+PASSWORD_RESET_URL = "password-reset/"
